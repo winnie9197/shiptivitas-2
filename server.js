@@ -126,9 +126,35 @@ app.put('/api/v1/clients/:id', (req, res) => {
   const client = clients.find(client => client.id === id);
 
   /* ---------- Update code below ----------*/
+  // verify status and priority
+  if (priority) {
+    const {validPriority, messageObjPriority } = validatePriority(priority)
+  } else {
+    // priority = db.prepare('select * from clients where priority=(select max(priority) from clients)').all();
+    priority = db.prepare('select max(priority) from clients where status=?').get(status)['max(priority)']+1;
+  }
 
+  // //check if status is one of backlog, in-progress, or complete
+  // //if so, put the id in clients
 
+  //check if status is same in db
+  if (status) {
+    let record = db.prepare('select * from clients where id=?').get(id);
+    const recordStatus = record['status'];
+    const recordPriority = record['priority'];
+    console.log(recordStatus, 'status');
+    console.log(recordPriority, "priority")
+    console.log(status == recordStatus);
+    if (status != recordStatus && (status=='backlog' || status=='in-progress' || status=='complete')) {
 
+      console.log(status, priority, id)
+      db.prepare('update clients set priority=priority+1 where status=? and priority>=?').run(status, priority);
+      db.prepare('update clients set status=?, priority=? where id=?').run(status, priority, id);
+      db.prepare('update clients set priority=priority-1 where status=? and priority>=?').run(recordStatus, recordPriority);
+    }
+  }
+
+  clients = db.prepare('select * from clients').all();
   return res.status(200).send(clients);
 });
 
